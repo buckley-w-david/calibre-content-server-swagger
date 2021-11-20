@@ -1,0 +1,473 @@
+swagger: "2.0"
+info:
+  description: "This is the (undocumented) calibre content server http API."
+  version: "1.0.0"
+  title: "Calibre Content Server"
+  license:
+    name: "GPL3"
+    url: "https://www.gnu.org/licenses/gpl-3.0.en.html"
+host: "your.calibre.instance"
+basePath: "/"
+tags:
+- name: "content"
+  description: "Content"
+- name: "code"
+  description: "Code"
+- name: "legacy"
+  description: "Legacy"
+- name: "convert"
+  description: "Convert"
+- name: "ajax"
+  description: "Ajax"
+- name: "users_api"
+  description: "Users API"
+- name: "opds"
+  description: "OPDS"
+- name: "cdb"
+  description: "Calibre DB"
+- name: "books"
+  description: "Books"
+schemes:
+- "https"
+- "http"
+paths:
+  /get/{what}/{book_id}/{library_id}:
+    get:
+      tags:
+      - "content"
+      summary: "Fetch object"
+      description: "This endpoint is a generic \"Fetch propery `what` from this `book_id`\" endpoint. It can be used to fetch metadata, thumbnail/cover images, opf information, or the book itself.\nvalid `what` values are \"thumb\", \"cover\", \"opf\", \"json\", or a book format (such as \"EPUB\")."
+      operationId: "getBook"
+      produces:
+      - "application/oebps-package+xml"
+      - "application/json"
+      - "image/jpg"
+      - "application/epub+zip"
+      parameters:
+      - name: "what"
+        in: "path"
+        description: "What kind of thing should be returned"
+        required: true
+        type: "string"
+      - name: "book_id"
+        in: "path"
+        description: "What book has this thing"
+        required: true
+        type: "integer"
+      - name: "library_id"
+        in: "path"
+        description: "What library is this thing in"
+        required: false
+        type: "string"
+        default: ""
+      responses:
+        "200":
+          description: "successful operation"
+        "403":
+          description: "user is not allowed to access library, or library does not exist"
+        "404":
+          description: "book_id not found"
+  /cdb/add-book/{job_id}/{add_duplicates}/{filename}/{library_id}:
+    post:
+      tags:
+      - "cdb"
+      summary: "Add a file as a new book. The file contents must be in the body of the request."
+      description: "The response will also have the title/authors/languages read from the\nmetadata of the file/filename. It will contain a `book_id` field specifying\nthe id of the newly added book, or if add_duplicates is not specified and a\nduplicate was found, no book_id will be present, instead there will be a\n`duplicates` field specifying the title and authors for all duplicate\nmatches. It will also return the value of `job_id` as the `id` field and\n`filename` as the `filename` field."
+      operationId: "addBook"
+      produces:
+        - "application/json"
+      parameters:
+      - name: "job_id"
+        in: "path"
+        description: "An id to give the job"
+        required: true
+        type: "integer"
+      - name: "add_duplicates"
+        in: "path"
+        description: "Does this contain duplicates"
+        required: true
+        type: "string"
+        enum:
+          - "n"
+          - "y"
+      - name: "filename"
+        in: "path"
+        description: "What is the filename for the book"
+        required: true
+        type: "string"
+      - name: "library_id"
+        in: "path"
+        description: "What library to add the book to"
+        required: false
+        default: ""
+        type: "string"
+      - name: "book"
+        in: "formData"
+        description: "The book file contents"
+        required: true
+        type: "file"
+      responses:
+        "200":
+          description: "book added"
+          schema:
+            $ref: "#/definitions/BookAdded"
+  /cdb/delete-books/{book_ids}/{library_id}:
+    post:
+      tags:
+      - "cdb"
+      summary: "Delete book_ids from library"
+      operationId: "deleteBooks"
+      parameters:
+      - name: "book_ids"
+        in: "path"
+        description: "comma separated list of books"
+        required: true
+        type: "string"
+      - name: "library_id"
+        in: "path"
+        description: "What library to are the books in"
+        required: false
+        default: ""
+        type: "string"
+      responses:
+        "200":
+          description: "books deleted"
+        "404":
+          description: "book_id not found"
+  /ajax/book/{book_id}/{library_id}:
+    get:
+      tags:
+      - "ajax"
+      summary: "Return the metadata of the book as a JSON dictionary."
+      operationId: "metadataBook"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "book_id"
+        in: "path"
+        description: "Book id of book to fetch metadata of"
+        required: true
+        type: "integer"
+      - name: "library_id"
+        in: "path"
+        description: "What library is the book in?"
+        required: false
+        default: ""
+        type: "integer"
+      - name: "category_urls"
+        in: "query"
+        description: "Also include a mapping of category (field) names to URLs that return the list of books in the given category"
+        required: false
+        default: true
+        type: "boolean"
+      - name: "id_is_uuid"
+        in: "query"
+        description: "If id_is_uuid is true then the book_id is assumed to be a book uuid instead"
+        required: false
+        default: false
+        type: "boolean"
+      - name: "device_for_template"
+        in: "query"
+        description: "TODO: I don't know what this parameter does"
+        required: false
+        type: "string"
+      responses:
+        "200":
+          description: "Metadata!"
+        "404":
+          description: "book_id not found"
+  /ajax/books_in/{encoded_category}/{encoded_item}/{library_id}:
+    get:
+      tags:
+      - "ajax"
+      summary: "Return the books (as list of ids) present in the specified category."
+      operationId: "booksIn"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "encoded_category"
+        in: "path"
+        description: "Category"
+        required: true
+        type: "integer"
+      - name: "encoded_item"
+        in: "path"
+        description: "Item"
+        required: true
+        type: "integer"
+      - name: "library_id"
+        in: "path"
+        description: "Library the category/item are in"
+        required: false
+        default: ""
+        type: "string"
+      - name: "num"
+        in: "query"
+        description: "How many book ids to return"
+        required: false
+        default: 100
+        type: "integer"
+      - name: "offset"
+        in: "query"
+        description: "Offset from book_id 0"
+        required: false
+        default: 0
+        type: "integer"
+      - name: "sort"
+        in: "query"
+        description: "What field should the ids be sorted by"
+        required: false
+        default: "title"
+        type: "string"
+      - name: "sort_order"
+        in: "query"
+        description: "Ascending or descending sort?"
+        required: false
+        default: "asc"
+        type: "string"
+        enum:
+          - "asc"
+          - "desc"
+      - name: "get_additional_fields"
+        in: "query"
+        description: "TODO: I don't know what this parameter does"
+        required: false
+        type: "string"
+      responses:
+        "200":
+          description: "Books!"
+          schema:
+            $ref: "#/definitions/BookIn"
+        "404":
+          description: "book_id not found"
+  /ajax/search/{library_id}:
+    get:
+      tags:
+      - "ajax"
+      summary: "Return the books matching the specified search query."
+      description: "Return the books matching the specified search query.\nThe returned object is a dict with the field book_ids which\nis a list of matched book ids."
+      operationId: "searchLibrary"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "library_id"
+        in: "path"
+        description: "What library are you searching in"
+        required: false
+        type: "string"
+      - name: "query"
+        in: "query"
+        description: "Search query"
+        required: true
+        type: "string"
+      - name: "num"
+        in: "query"
+        description: "Number of results to return"
+        required: false
+        default: 100
+        type: "integer"
+      - name: "offset"
+        in: "query"
+        description: "Offset from results 0"
+        required: false
+        default: 0
+        type: "integer"
+      - name: "sort"
+        in: "query"
+        description: "What field should the ids be sorted by"
+        required: false
+        default: "title"
+        type: "string"
+      - name: "sort_order"
+        in: "query"
+        description: "Ascending or descending sort?"
+        required: false
+        default: "asc"
+        type: "string"
+        enum:
+          - "asc"
+          - "desc"
+      - name: "vl"
+        in: "query"
+        description: "TODO: I don't know what this param does"
+        required: false
+        type: "string"
+      responses:
+        "200":
+          description: "search results returned"
+          schema:
+            $ref: "#/definitions/BookSearch"
+        "404":
+          description: "book_id not found"
+  /cdb/set-fields/{book_id}/{library_id}:
+    post:
+      tags:
+      - "cdb"
+      summary: "Set fields of a book"
+      description: "TODO: Can this set fields on multiple books at once even though it's an endpoint with a book id?"
+      operationId: "setBookFields"
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "book_id"
+        in: "path"
+        description: "What book to convert"
+        required: true
+        type: "integer"
+      - name: "library_id"
+        in: "path"
+        description: "What library is the book in"
+        required: false
+        type: "string"
+      - name: "fields"
+        in: "body"
+        description: "What are the changes?"
+        required: false
+        type: "object"
+        schema:
+          $ref: "#/definitions/FieldChanges"
+      responses:
+        "200":
+          description: "Fields set"
+        "404":
+          description: "book_id not found"
+  /cdb/cmd/{which}/{version}:
+    post:
+      tags:
+      - "cdb"
+      summary: "Run a calibredb cli command"
+      operationId: "dbCmd"
+      consumes:
+      - "application/json"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "which"
+        in: "path"
+        description: "What command to run"
+        required: true
+        type: "string"
+      - name: "version"
+        in: "path"
+        description: "What version that command must be"
+        required: false
+        default: 0
+        type: "integer"
+      - name: "args"
+        in: "body"
+        description: "Options to send to the command"
+        required: true
+        type: "object"
+      responses:
+        "200":
+          description: "calibredb command run"
+        "404":
+          description: "command not found"
+securityDefinitions:
+  basicAuth:
+    type: basic
+security:
+  - basicAuth: []
+definitions:
+  BookAdded:
+    type: "object"
+    required:
+    - "title"
+    - "authors"
+    - "languages"
+    - "filename"
+    - "id"
+    - "book_id"
+    properties:
+      id:
+        type: "integer"
+      authors:
+        type: "array"
+        items:
+          type: "string"
+      languages:
+        type: "array"
+        items:
+          type: "string"
+      filename:
+        type: "string"
+      book_id:
+        type: "integer"
+  BookIn:
+    type: "object"
+    required:
+    - "total_num"
+    - "sort_order"
+    - "offset"
+    - "num"
+    - "sort"
+    - "base_url"
+    - "book_ids"
+    properties:
+      total_num:
+        type: "integer"
+      sort_order:
+        type: "string"
+        enum:
+          - "asc"
+          - "desc"
+      offset:
+        type: "integer"
+      num:
+        type: "integer"
+      sort:
+        type: "string"
+      base_url:
+        type: "string"
+      book_ids:
+        type: "array"
+        items:
+          type: "integer"
+  BookSearch:
+    type: "object"
+    required:
+    - "total_num"
+    - "number_books_without_search"
+    - "offset"
+    - "base_url"
+    - "query"
+    - "library_id"
+    - "book_ids"
+    - "vl"
+    properties:
+      total_num:
+        type: "integer"
+      number_books_without_search:
+        type: "integer"
+      offset:
+        type: "integer"
+      num:
+        type: "integer"
+      base_url:
+        type: "string"
+      query:
+        type: "string"
+      library_id:
+        type: "string"
+      book_ids:
+        type: "array"
+        items:
+          type: "integer"
+      vl:
+        type: "string"
+  FieldChanges:
+    type: "object"
+    required:
+    - "changes"
+    - "loaded_book_ids"
+    properties:
+      changes:
+        type: "object"
+      loaded_book_ids:
+        type: "array"
+        items:
+          type: "integer"
+      all_dirtied:
+        type: "boolean"
