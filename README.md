@@ -4,4 +4,4 @@
 
 It has a feature called the [calibre Content server](https://manual.calibre-ebook.com/server.html).
 
-This server has a mostly undocumented HTTP API. This Repository is an attempt to document it.
+This server has a mostly undocumented HTTP API. This repository is an attempt to document it.
